@@ -57,11 +57,12 @@ process.on("SIGINT", () => {
 });
 
 // Mongoose schemas
-const blogSchema = new mongoose.Schema({
+const noteSchema = new mongoose.Schema({
   heading: String,
   content: String,
   author: String,
   date: { type: Date, default: Date.now },
+  //lastModified: Date,
   place: String,
   tags: {
     type: [String], // Tags as an array
@@ -81,7 +82,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
 });
 
-const Blog = mongoose.model("Blog", blogSchema);
+const Note = mongoose.model("Note", noteSchema);
 const User = mongoose.model("User", userSchema);
 
 // Passport setup for user authentication
@@ -193,13 +194,14 @@ app.get("/", ensureAuthenticated, async (req, res) => {
       return res.status(404).send("User not found"); // If user is not found
     }
 
-    const posts = await Blog.find({ author: user.username });
+    const posts = await Note.find({ author: user.username });
 
     res.render("home", {
-      content: "Welcome to your blog!", // Example content
+      content: "These are your notes!", // Example content
       posts: posts.map((post) => ({
         ...post.toObject(), // Convert Mongoose document to plain object
-        truncatedContent: stripHtmlTags(post.content).substring(0, 100) + "...", // Truncated content
+        truncatedContent: stripHtmlTags(post.content).substring(0, 200) + "...", // Truncated content
+		//TODO ok 200 caratteri come da specifiche Selfie ma aggiungi "..." solo se lo tronchi davvero il messaggio
       })),
       username: user.username, // Pass username to the template
     });
@@ -233,7 +235,7 @@ const tags = (req.body.tags && typeof req.body.tags === 'string')
 const sanitizedTags = tags.map(tag => tag.trim().replace(/[^a-zA-Z0-9-_ ]/g, "")); // Strip special characters and spaces at ends
 
 
-const newBlog = new Blog({
+const newNote = new Note({
   heading: req.body.title,
   content: postContentHtml,
   author: user.username,
@@ -242,7 +244,7 @@ const newBlog = new Blog({
 });
 
   try {
-    await newBlog.save(); // Save to the database
+    await newNote.save(); // Save to the database
     res.redirect("/"); // Redirect after successful save
   } catch (error) {
     console.error("Error saving post:", error); // Handle error
@@ -261,7 +263,7 @@ app.get("/users/:username/posts/:postTitle", async (req, res) => {
       return res.status(404).send("User not found");
     }
 
-    const post = await Blog.findOne({
+    const post = await Note.findOne({
       heading: new RegExp("^" + _.escapeRegExp(postTitle) + "$", "i"),
       author: username,
     });
@@ -317,7 +319,7 @@ app.get('/search', async (req, res) => {
 
   try {
     // Use `$or` to search for posts with matching titles or tags
-    const matchingPosts = await Blog.find({
+    const matchingPosts = await Note.find({
       $or: [
         { heading: { $regex: queryText, $options: 'i' } }, // Case-insensitive search by title
         { tags: { $in: [new RegExp(queryText, 'i')] } } // Search tags array for a matching tag
